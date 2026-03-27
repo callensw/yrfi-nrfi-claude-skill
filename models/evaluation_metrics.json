@@ -1,0 +1,204 @@
+{
+  "timestamp": "20260327_180539",
+  "model_version": "xgb_v1_20260327_180539",
+  "train_seasons": [
+    2023,
+    2024
+  ],
+  "test_season": 2025,
+  "n_train": 5065,
+  "n_test": 2518,
+  "features": [
+    "combined_scoreless_pct",
+    "combined_fi_era",
+    "home_p_era_delta",
+    "away_p_era_delta",
+    "home_p_scoreless_pct",
+    "away_p_scoreless_pct",
+    "home_p_k9",
+    "away_p_k9",
+    "home_p_bb9",
+    "away_p_bb9",
+    "home_p_fi_era",
+    "away_p_fi_era",
+    "home_team_yrfi_pct",
+    "away_team_yrfi_pct",
+    "park_yrfi_pct",
+    "is_dome",
+    "vegas_over_under",
+    "era_delta_x_park",
+    "pitcher_era_gap"
+  ],
+  "best_hyperparameters": {
+    "max_depth": 3,
+    "learning_rate": 0.016444863854412933,
+    "n_estimators": 200,
+    "min_child_weight": 5,
+    "subsample": 0.8643737484343097,
+    "colsample_bytree": 0.6959878677476028,
+    "gamma": 2.1858074061988453
+  },
+  "holdout_metrics": {
+    "accuracy": 0.608,
+    "precision": 0.6007,
+    "recall": 0.659,
+    "f1": 0.6285,
+    "auc_roc": 0.6573,
+    "log_loss": 0.6523,
+    "n_test": 2518,
+    "yrfi_rate_actual": 0.5032
+  },
+  "threshold_analysis": [
+    {
+      "threshold": 0.4,
+      "accuracy": 0.5731,
+      "precision_yrfi": 0.5467,
+      "recall_yrfi": 0.8871,
+      "f1": 0.6765,
+      "yrfi_picks": 2056,
+      "nrfi_picks": 462
+    },
+    {
+      "threshold": 0.45,
+      "accuracy": 0.6037,
+      "precision_yrfi": 0.5751,
+      "recall_yrfi": 0.8129,
+      "f1": 0.6736,
+      "yrfi_picks": 1791,
+      "nrfi_picks": 727
+    },
+    {
+      "threshold": 0.5,
+      "accuracy": 0.608,
+      "precision_yrfi": 0.6007,
+      "recall_yrfi": 0.659,
+      "f1": 0.6285,
+      "yrfi_picks": 1390,
+      "nrfi_picks": 1128
+    },
+    {
+      "threshold": 0.55,
+      "accuracy": 0.6013,
+      "precision_yrfi": 0.6363,
+      "recall_yrfi": 0.4846,
+      "f1": 0.5502,
+      "yrfi_picks": 965,
+      "nrfi_picks": 1553
+    },
+    {
+      "threshold": 0.6,
+      "accuracy": 0.5755,
+      "precision_yrfi": 0.6755,
+      "recall_yrfi": 0.3007,
+      "f1": 0.4162,
+      "yrfi_picks": 564,
+      "nrfi_picks": 1954
+    }
+  ],
+  "confidence_tiers": [
+    {
+      "tier": "Strong NRFI",
+      "n_games": 250,
+      "actual_yrfi_rate": 0.284,
+      "accuracy": 0.716,
+      "pct_of_total": 9.9
+    },
+    {
+      "tier": "Lean NRFI",
+      "n_games": 307,
+      "actual_yrfi_rate": 0.329,
+      "accuracy": 0.671,
+      "pct_of_total": 12.2
+    },
+    {
+      "tier": "Skip",
+      "n_games": 1254,
+      "actual_yrfi_rate": 0.4992,
+      "accuracy": null,
+      "pct_of_total": 49.8
+    },
+    {
+      "tier": "Lean YRFI",
+      "n_games": 409,
+      "actual_yrfi_rate": 0.5819,
+      "accuracy": 0.5819,
+      "pct_of_total": 16.2
+    },
+    {
+      "tier": "Strong YRFI",
+      "n_games": 298,
+      "actual_yrfi_rate": 0.7752,
+      "accuracy": 0.7752,
+      "pct_of_total": 11.8
+    }
+  ],
+  "hybrid_comparison": {
+    "xgboost": {
+      "n_picks": 1264,
+      "n_skip": 1254,
+      "accuracy": 0.6756
+    },
+    "rule_based": {
+      "n_picks": 348,
+      "n_skip": 2170,
+      "accuracy": 0.6523
+    },
+    "consensus": {
+      "n_picks": 298,
+      "accuracy": 0.6879,
+      "pct_of_games": 11.8
+    }
+  },
+  "shap_top_10": [
+    {
+      "feature": "combined_scoreless_pct",
+      "mean_abs_shap": 0.2546447813510895,
+      "rank": 1
+    },
+    {
+      "feature": "park_yrfi_pct",
+      "mean_abs_shap": 0.10552456229925156,
+      "rank": 2
+    },
+    {
+      "feature": "away_p_scoreless_pct",
+      "mean_abs_shap": 0.08909730613231659,
+      "rank": 3
+    },
+    {
+      "feature": "away_team_yrfi_pct",
+      "mean_abs_shap": 0.06715966016054153,
+      "rank": 4
+    },
+    {
+      "feature": "combined_fi_era",
+      "mean_abs_shap": 0.05364953354001045,
+      "rank": 5
+    },
+    {
+      "feature": "home_team_yrfi_pct",
+      "mean_abs_shap": 0.0334479883313179,
+      "rank": 6
+    },
+    {
+      "feature": "home_p_scoreless_pct",
+      "mean_abs_shap": 0.024679504334926605,
+      "rank": 7
+    },
+    {
+      "feature": "away_p_fi_era",
+      "mean_abs_shap": 0.012010118924081326,
+      "rank": 8
+    },
+    {
+      "feature": "pitcher_era_gap",
+      "mean_abs_shap": 0.00877360813319683,
+      "rank": 9
+    },
+    {
+      "feature": "home_p_era_delta",
+      "mean_abs_shap": 0.008377805352210999,
+      "rank": 10
+    }
+  ]
+}

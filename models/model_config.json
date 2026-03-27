@@ -1,0 +1,67 @@
+{
+  "feature_names": [
+    "combined_scoreless_pct",
+    "combined_fi_era",
+    "home_p_era_delta",
+    "away_p_era_delta",
+    "home_p_scoreless_pct",
+    "away_p_scoreless_pct",
+    "home_p_k9",
+    "away_p_k9",
+    "home_p_bb9",
+    "away_p_bb9",
+    "home_p_fi_era",
+    "away_p_fi_era",
+    "home_team_yrfi_pct",
+    "away_team_yrfi_pct",
+    "park_yrfi_pct",
+    "is_dome",
+    "vegas_over_under",
+    "era_delta_x_park",
+    "pitcher_era_gap"
+  ],
+  "feature_map": {
+    "combined_scoreless_pct": "combined_scoreless_pct",
+    "combined_fi_era": "combined_fi_era",
+    "home_p_era_delta": "home_p_fi_era_delta",
+    "away_p_era_delta": "away_p_fi_era_delta",
+    "home_p_scoreless_pct": "home_p_fi_scoreless_pct",
+    "away_p_scoreless_pct": "away_p_fi_scoreless_pct",
+    "home_p_k9": "home_p_k9",
+    "away_p_k9": "away_p_k9",
+    "home_p_bb9": "home_p_bb9",
+    "away_p_bb9": "away_p_bb9",
+    "home_p_fi_era": "home_p_fi_era",
+    "away_p_fi_era": "away_p_fi_era",
+    "home_team_yrfi_pct": "home_team_yrfi_pct_home",
+    "away_team_yrfi_pct": "away_team_yrfi_pct_away",
+    "park_yrfi_pct": "park_yrfi_pct",
+    "is_dome": "is_dome",
+    "vegas_over_under": "vegas_over_under",
+    "era_delta_x_park": "pitcher_era_delta_x_park_factor",
+    "pitcher_era_gap": "pitcher_era_gap"
+  },
+  "confidence_tiers": {
+    "Strong NRFI": [
+      0.0,
+      0.35
+    ],
+    "Lean NRFI": [
+      0.35,
+      0.42
+    ],
+    "Skip": [
+      0.42,
+      0.58
+    ],
+    "Lean YRFI": [
+      0.58,
+      0.65
+    ],
+    "Strong YRFI": [
+      0.65,
+      1.01
+    ]
+  },
+  "model_version": "xgb_v1_20260327_180539"
+}

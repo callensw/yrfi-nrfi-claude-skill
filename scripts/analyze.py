@@ -22,6 +22,135 @@ from datetime import datetime
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from utils import safe_float, safe_int, today_str
 
+# ── XGBoost Model Integration ────────────────────────────────────────────────
+_XGB_MODEL = None
+_XGB_CONFIG = None
+
+
+def _load_xgb_model():
+    """Lazy-load the XGBoost model and config."""
+    global _XGB_MODEL, _XGB_CONFIG
+    if _XGB_MODEL is not None:
+        return _XGB_MODEL, _XGB_CONFIG
+    try:
+        import joblib
+        models_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "models")
+        model_path = os.path.join(models_dir, "yrfi_xgboost.joblib")
+        config_path = os.path.join(models_dir, "model_config.json")
+        if os.path.exists(model_path) and os.path.exists(config_path):
+            _XGB_MODEL = joblib.load(model_path)
+            with open(config_path) as f:
+                _XGB_CONFIG = json.load(f)
+            return _XGB_MODEL, _XGB_CONFIG
+    except Exception as e:
+        print(f"[XGBoost] Could not load model: {e}", file=sys.stderr)
+    return None, None
+
+
+def xgb_predict(game: dict) -> dict | None:
+    """
+    Run XGBoost prediction on a game dict.
+    Extracts features from the game data and returns probability + tier.
+    """
+    model, config = _load_xgb_model()
+    if model is None or config is None:
+        return None
+
+    try:
+        import numpy as np
+
+        feature_map = config["feature_map"]
+        feature_names = config["feature_names"]
+        tiers = config["confidence_tiers"]
+
+        # Extract features from game dict, mapping to model's expected inputs
+        features = {}
+        for friendly, db_col in feature_map.items():
+            val = _extract_game_feature(game, friendly, db_col)
+            features[friendly] = val
+
+        # Build feature array in correct order
+        X = np.array([[features.get(f, 0.0) for f in feature_names]])
+        proba = float(model.predict_proba(X)[0][1])
+
+        # Classify into tier
+        tier = "Skip"
+        for tier_name, (low, high) in tiers.items():
+            if low <= proba < high:
+                tier = tier_name
+                break
+
+        # Determine pick direction
+        if "YRFI" in tier:
+            pick = "YRFI"
+        elif "NRFI" in tier:
+            pick = "NRFI"
+        else:
+            pick = "SKIP"
+
+        return {
+            "probability": round(proba, 4),
+            "tier": tier,
+            "pick": pick,
+            "model_version": config.get("model_version", "unknown"),
+        }
+    except Exception as e:
+        print(f"[XGBoost] Prediction error: {e}", file=sys.stderr)
+        return None
+
+
+def _extract_game_feature(game: dict, friendly: str, db_col: str) -> float:
+    """Extract a single feature value from the game dict for XGBoost."""
+    # Map friendly names to where the data lives in the game dict
+    fi_home = game.get("home_pitcher_fi", {})
+    fi_away = game.get("away_pitcher_fi", {})
+    prof_home = game.get("home_pitcher_profile", {})
+    prof_away = game.get("away_pitcher_profile", {})
+    park = game.get("park_factor", {})
+    weather = game.get("weather", {})
+
+    mapping = {
+        "combined_scoreless_pct": lambda: (
+            safe_float(fi_home.get("first_inning_scoreless_pct", 50)) +
+            safe_float(fi_away.get("first_inning_scoreless_pct", 50))
+        ) / 2.0,
+        "combined_fi_era": lambda: (
+            safe_float(fi_home.get("first_inning_era", 4.5)) +
+            safe_float(fi_away.get("first_inning_era", 4.5))
+        ) / 2.0,
+        "home_p_era_delta": lambda: safe_float(fi_home.get("first_inning_era_delta", 0)),
+        "away_p_era_delta": lambda: safe_float(fi_away.get("first_inning_era_delta", 0)),
+        "home_p_scoreless_pct": lambda: safe_float(fi_home.get("first_inning_scoreless_pct", 50)),
+        "away_p_scoreless_pct": lambda: safe_float(fi_away.get("first_inning_scoreless_pct", 50)),
+        "home_p_k9": lambda: safe_float(prof_home.get("k_per_9", 8.0)),
+        "away_p_k9": lambda: safe_float(prof_away.get("k_per_9", 8.0)),
+        "home_p_bb9": lambda: safe_float(prof_home.get("bb_per_9", 3.0)),
+        "away_p_bb9": lambda: safe_float(prof_away.get("bb_per_9", 3.0)),
+        "home_p_fi_era": lambda: safe_float(fi_home.get("first_inning_era", 4.5)),
+        "away_p_fi_era": lambda: safe_float(fi_away.get("first_inning_era", 4.5)),
+        "home_team_yrfi_pct": lambda: safe_float(game.get("home_team_stats", {}).get("yrfi_pct_home", 50)),
+        "away_team_yrfi_pct": lambda: safe_float(game.get("away_team_stats", {}).get("yrfi_pct_away", 50)),
+        "park_yrfi_pct": lambda: safe_float(park.get("yrfi_pct_at_venue", 50)),
+        "is_dome": lambda: 1.0 if weather.get("is_dome") else 0.0,
+        "vegas_over_under": lambda: safe_float(game.get("vegas_over_under", 8.5)),
+        "era_delta_x_park": lambda: (
+            safe_float(fi_home.get("first_inning_era_delta", 0)) *
+            safe_float(park.get("park_factor_runs", 1.0))
+        ),
+        "pitcher_era_gap": lambda: abs(
+            safe_float(fi_home.get("first_inning_era", 4.5)) -
+            safe_float(fi_away.get("first_inning_era", 4.5))
+        ),
+    }
+
+    extractor = mapping.get(friendly)
+    if extractor:
+        try:
+            return float(extractor())
+        except (TypeError, ValueError):
+            return 0.0
+    return 0.0
+
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # FACTOR WEIGHTS
@@ -647,7 +776,16 @@ def analyze_game(game: dict) -> dict:
     if lineup_status == "projected" and pick != "SKIP":
         confidence = max(0, confidence - 5)
 
-    return {
+    # ── XGBoost Scoring ─────────────────────────────────────────
+    xgb_result = xgb_predict(game)
+    consensus = False
+    if xgb_result:
+        # Check for consensus: both models agree on direction AND non-skip
+        if pick != "SKIP" and xgb_result["pick"] != "SKIP":
+            if pick == xgb_result["pick"]:
+                consensus = True
+
+    result = {
         "game_id": game.get("game_id"),
         "date": game.get("date"),
         "matchup": f"{game.get('away_team', '???')} @ {game.get('home_team', '???')}",
@@ -665,7 +803,12 @@ def analyze_game(game: dict) -> dict:
         "key_reasons": all_reasons[:10],  # Top 10 most relevant reasons
         "weather": game.get("weather", {}),
         "vegas_ou": game.get("vegas_over_under"),
+        "xgb": xgb_result,
+        "consensus_pick": consensus,
+        "model_version": xgb_result["model_version"] if xgb_result else None,
     }
+
+    return result
 
 
 def analyze_slate(games: list) -> dict:
@@ -702,12 +845,23 @@ def analyze_slate(games: list) -> dict:
 def format_pick_card(pick: dict) -> str:
     """Format a single pick as a text card."""
     emoji = "🟢" if pick["pick"] == "YRFI" else "🔴" if pick["pick"] == "NRFI" else "⚪"
+    consensus_flag = "🔒 CONSENSUS " if pick.get("consensus_pick") else ""
     lines = [
-        f"{emoji} {pick['pick']}: {pick['matchup']} ({pick['game_time']})",
+        f"{consensus_flag}{emoji} {pick['pick']}: {pick['matchup']} ({pick['game_time']})",
         f"Confidence: {pick['confidence']}/100 | "
         f"{'O/U: ' + str(pick['vegas_ou']) if pick.get('vegas_ou') else 'No O/U data'}",
         f"Pitchers: {pick['away_pitcher']} vs {pick['home_pitcher']}",
     ]
+
+    # Dual model scores
+    xgb = pick.get("xgb")
+    if xgb:
+        rb_dir = pick["pick"]
+        xgb_dir = xgb["pick"]
+        lines.append(
+            f"Rule-based: {pick['yrfi_probability']:.0f}/100 {rb_dir} | "
+            f"XGBoost: {xgb['probability']:.2f} P(YRFI) → {xgb['tier']}"
+        )
 
     # Add override flags
     for override in pick.get("overrides_fired", []):
@@ -807,14 +961,21 @@ def main():
         for pick in analysis["all_picks"]:
             if pick["pick"] == "SKIP":
                 continue
+            xgb = pick.get("xgb", {})
+            xgb_prob = xgb.get("probability", "NULL") if xgb else "NULL"
+            xgb_tier = f"'{xgb['tier']}'" if xgb and xgb.get("tier") else "NULL"
+            model_ver = f"'{pick['model_version']}'" if pick.get("model_version") else "NULL"
+            consensus = pick.get("consensus_pick", False)
             print(f"""
 INSERT INTO mlb_yrfi_picks (game_id, date, pick, yrfi_probability, confidence,
-    edge_rating, reasoning_json, overrides_fired, lineup_confirmed)
+    edge_rating, reasoning_json, overrides_fired, lineup_confirmed,
+    xgb_probability, xgb_tier, model_version, consensus_pick)
 VALUES ({pick['game_id']}, '{pick['date']}', '{pick['pick']}',
     {pick['yrfi_probability']}, {pick['confidence']}, '{pick['edge_rating']}',
     '{json.dumps(pick["factor_scores"]).replace(chr(39), chr(39)+chr(39))}',
     '{json.dumps(pick["overrides_fired"]).replace(chr(39), chr(39)+chr(39))}',
-    {pick['lineup_status'] == 'confirmed'})
+    {pick['lineup_status'] == 'confirmed'},
+    {xgb_prob}, {xgb_tier}, {model_ver}, {consensus})
 ON CONFLICT (game_id, date) DO UPDATE SET
     pick = EXCLUDED.pick,
     yrfi_probability = EXCLUDED.yrfi_probability,
@@ -822,7 +983,11 @@ ON CONFLICT (game_id, date) DO UPDATE SET
     edge_rating = EXCLUDED.edge_rating,
     reasoning_json = EXCLUDED.reasoning_json,
     overrides_fired = EXCLUDED.overrides_fired,
-    lineup_confirmed = EXCLUDED.lineup_confirmed;""")
+    lineup_confirmed = EXCLUDED.lineup_confirmed,
+    xgb_probability = EXCLUDED.xgb_probability,
+    xgb_tier = EXCLUDED.xgb_tier,
+    model_version = EXCLUDED.model_version,
+    consensus_pick = EXCLUDED.consensus_pick;""")
     else:
         print(format_full_slate(analysis))
 
